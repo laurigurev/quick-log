@@ -1,0 +1,19 @@
+AlignAfterOpenBracket: Align
+AlignArrayOfStructures: Left
+AlignConsecutiveMacros: Consecutive
+AlignConsecutiveDeclarations: Consecutive
+AlignEscapedNewlines: Left
+AlignTrailingComments: true
+PointerAlignment: Left
+IndentWidth: 8
+ColumnLimit: 160
+SpaceBeforeParens: ControlStatements
+AllowShortFunctionsOnASingleLine: Empty
+BreakBeforeBraces: Custom
+BraceWrapping:
+# AfterFunction: true
+AllowShortIfStatementsOnASingleLine: AllIfsAndElse 
+AllowShortLoopsOnASingleLine: true
+BreakBeforeBraces: Stroustrup
+AlwaysBreakTemplateDeclarations: Yes 
+AllowShortEnumsOnASingleLine: false 
