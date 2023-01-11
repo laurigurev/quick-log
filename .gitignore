@@ -1,3 +1,4 @@
 *.exe
 *.bat
 *.ilf
+compile_flags.txt
