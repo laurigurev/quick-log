@@ -22,7 +22,13 @@ constexpr size_t sizeofargs(const T& t, const A&... a)
         return 1 + sizeofargs(a...);
 }
 
-// TODO: add a header
+struct file_header {
+        const char name[4];
+        const uint32_t table_count;
+
+        file_header() = delete;
+        file_header(const uint32_t n) : name{'.', 'q', 'l', 'b'}, table_count(n) {}
+};
 
 struct table_header {
         const size_t table_size;
@@ -34,21 +40,34 @@ struct table_header {
 };
 
 struct context {
-        context() : idx(0), file_pointer(0)
+        context() : idx(0), file_pointer(0), table_count(0)
         {
                 memory = reinterpret_cast<char*>(VirtualAlloc(NULL, size, MEM_COMMIT, PAGE_READWRITE));
                 assert(memory != NULL);
-                storage = reinterpret_cast<char*>(VirtualAlloc(NULL, size, MEM_COMMIT, PAGE_READWRITE));
+                storage = reinterpret_cast<char*>(VirtualAlloc(NULL, 1024, MEM_COMMIT, PAGE_READWRITE));
                 assert(storage != NULL);
 
                 handle = CreateFile("logs.qlb", GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_FLAG_WRITE_THROUGH | FILE_FLAG_NO_BUFFERING, NULL);
                 assert(handle != INVALID_HANDLE_VALUE);
+
+                const file_header fheader = { 0 };
+                memcpy(memory, &fheader, sizeof(file_header));
+                idx += sizeof(file_header);
+                file_pointer += sizeof(file_header);
         }
 
         ~context()
         {
                 flush();
                 // TODO: truncate the file
+                CloseHandle(handle);
+                
+                // update file header
+                handle = CreateFile("logs.qlb", GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+                assert(handle != INVALID_HANDLE_VALUE);
+                const file_header fheader = {table_count};
+                SetFilePointer(handle, 0, NULL, FILE_BEGIN);
+                WriteFile(handle, &fheader, sizeof(file_header), NULL, NULL);
                 CloseHandle(handle);
         }
 
@@ -103,6 +122,7 @@ struct context {
         constexpr void push_table(const table_header header, const size_t slen, const size_t spad, const char* str, const size_t alen, const size_t apad,
                                   const A... a)
         {
+                table_count++;
                 if (idx + header.table_size < size) {
                         // proceed
                         memcpy(memory + idx, &header, sizeof(table_header));
@@ -145,12 +165,13 @@ struct context {
                 idx += len - delta;
         }
 
-        static constexpr size_t size = 1024;
+        static constexpr size_t size = 1024 * 512;
         char*                   memory;
         char*                   storage;
         size_t                  idx;
         size_t                  file_pointer;
         HANDLE                  handle;
+        uint32_t table_count;
 };
 
 static context ctx;
@@ -182,8 +203,7 @@ constexpr void construct_table(const size_t lvl, const size_t slen, const size_t
                 qlog::construct_table(lvl, slen, spad, str, __VA_ARGS__); \
         }
 
-// #define LOOPS 30000000
-#define LOOPS 100000
+#define LOOPS 10000000
 
 int main()
 {
@@ -201,7 +221,7 @@ int main()
         delta = static_cast<double>(e.QuadPart - s.QuadPart);
         delta /= f.QuadPart;
 
-        printf("qlog(...) for %i loops took %.4fs\n", LOOPS, delta);
+        printf("QLOG(...) for %i loops took %.4fs\n", LOOPS, delta);
 
         return 0;
 }
