@@ -2,3 +2,4 @@
 *.bat
 *.ilf
 compile_flags.txt
+*.qlb

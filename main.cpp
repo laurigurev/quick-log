@@ -1,8 +1,12 @@
+#include <cassert>
 #include <cstdio>
-#include <type_traits>
 #include <cstring>
+#include <type_traits>
+#include <windows.h>
 
 #define QLOG_PAD 8
+
+namespace qlog {
 
 template <typename L>
 constexpr size_t sizeofargs(const L& l)
@@ -18,7 +22,10 @@ constexpr size_t sizeofargs(const T& t, const A&... a)
         return 1 + sizeofargs(a...);
 }
 
-struct qlog_table_header {
+// TODO: add a header
+
+struct table_header {
+        const size_t table_size;
         const size_t level;
         const size_t str_len;
         const size_t str_offset;
@@ -26,84 +33,157 @@ struct qlog_table_header {
         const size_t args_offset;
 };
 
-template <size_t N>
-struct qlog_table_body {
-        template <typename L>
-        constexpr void qlog_construct_body(const size_t& index, const L& l)
+struct context {
+        context() : idx(0), file_pointer(0)
         {
-                memcpy(data + index, &l, sizeof(L));
+                memory = reinterpret_cast<char*>(VirtualAlloc(NULL, size, MEM_COMMIT, PAGE_READWRITE));
+                assert(memory != NULL);
+                storage = reinterpret_cast<char*>(VirtualAlloc(NULL, size, MEM_COMMIT, PAGE_READWRITE));
+                assert(storage != NULL);
+
+                handle = CreateFile("logs.qlb", GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_FLAG_WRITE_THROUGH | FILE_FLAG_NO_BUFFERING, NULL);
+                assert(handle != INVALID_HANDLE_VALUE);
+        }
+
+        ~context()
+        {
+                flush();
+                // TODO: truncate the file
+                CloseHandle(handle);
+        }
+
+        void flush()
+        {
+                WriteFile(handle, memory, size, NULL, NULL);
+                idx = 0;
+        }
+
+        template <typename T>
+        constexpr void push_table_body(char* dst, const size_t offset, const T t)
+        {
+                if (sizeof(T) == 8) {
+                        memcpy(dst + offset, &t, 8);
+                }
+                else if (sizeof(T) == 4) {
+                        memcpy(dst + offset, &t, 4);
+                        memset(dst + offset + 4, 0, 4);
+                }
+                else if (sizeof(T) == 2) {
+                        memcpy(dst + offset, &t, 2);
+                        memset(dst + offset + 2, 0, 6);
+                }
+                else if (sizeof(T) == 1) {
+                        memset(dst + offset, 0, 8);
+                        memcpy(dst + offset, &t, 1);
+                }
         }
 
         template <typename T, typename... A>
-        constexpr void qlog_construct_body(const size_t& index, const T& t, const A&... a)
+        constexpr void push_table_body(char* dst, const size_t offset, const T t, const A... a)
         {
-                memcpy(data + index, &t, sizeof(t));
-                qlog_construct_body(index + 1, a...);
+                if (sizeof(T) == 8) {
+                        memcpy(dst + offset, &t, 8);
+                }
+                else if (sizeof(T) == 4) {
+                        memset(dst + offset, 0, 8);
+                        memcpy(dst + offset, &t, 4);
+                }
+                else if (sizeof(T) == 2) {
+                        memset(dst + offset, 0, 8);
+                        memcpy(dst + offset, &t, 2);
+                }
+                else if (sizeof(T) == 1) {
+                        memset(dst + offset, 0, 8);
+                        memcpy(dst + offset, &t, 1);
+                }
+                push_table_body(dst, offset + sizeof(size_t), a...);
         }
 
         template <typename... A>
-        constexpr qlog_table_body(const A&... a)
+        constexpr void push_table(const table_header header, const size_t slen, const size_t spad, const char* str, const size_t alen, const size_t apad,
+                                  const A... a)
         {
-                qlog_construct_body(0, a...);
+                if (idx + header.table_size < size) {
+                        // proceed
+                        memcpy(memory + idx, &header, sizeof(table_header));
+                        idx += sizeof(table_header);
+                        memcpy(memory + idx, str, slen);
+                        idx += slen + spad;
+                        push_table_body(memory, idx, a...);
+                        idx += alen + apad;
+
+                        // printf("qlog::context::push_table(...), idx %llu, file_pointer %llu\n", idx, file_pointer);
+                }
+                else {
+                        push_table_slow(header, slen, spad, str, alen, apad, a...);
+
+                        // printf("qlog::context::push_table_slow(...), idx %llu, file_pointer %llu\n", idx, file_pointer);
+                }
+                file_pointer += header.table_size;
         }
 
-        size_t data[N];
+        template <typename... A>
+        constexpr void push_table_slow(const table_header header, const size_t slen, const size_t spad, const char* str, const size_t alen, const size_t apad,
+                                       const A... a)
+        {
+                // create table on secondary buffer
+                size_t len = 0;
+                memcpy(storage + len, &header, sizeof(table_header));
+                len += sizeof(table_header);
+                memcpy(storage + len, str, slen);
+                len += slen + spad;
+                push_table_body(storage, len, a...);
+                len += alen + apad;
+
+                // copy as much as we can to fill the buffer,
+                // then flush and finally add what we are missing
+                const size_t delta = size - idx;
+                memcpy(memory + idx, storage, delta);
+                flush();
+                memcpy(memory + idx, storage + delta, len - delta);
+
+                idx += len - delta;
+        }
+
+        static constexpr size_t size = 1024;
+        char*                   memory;
+        char*                   storage;
+        size_t                  idx;
+        size_t                  file_pointer;
+        HANDLE                  handle;
 };
 
-struct buffer {
-        buffer() : idx(0) {}
-
-        char   raw[256];
-        size_t idx;
-};
-
-struct file_context {
-        file_context() : file_pointer(0) {}
-
-        buffer buf;
-        size_t file_pointer;
-};
-
-static file_context fc;
+static context ctx;
 
 template <typename... A>
-constexpr void qlog_construct_table(const size_t& lvl, const size_t& slen, const size_t& spad, const char* str, const A... a)
+constexpr void construct_table(const size_t lvl, const size_t slen, const size_t spad, const char* str, const A... a)
 {
-        // this is for testing
-        fc.buf.idx = 0;
-
         // get argument list parameters
-        constexpr size_t alen = sizeofargs(a...);
+        constexpr size_t acount = sizeofargs(a...);
+        constexpr size_t alen = acount * sizeof(size_t);
         constexpr size_t apad = alen % QLOG_PAD;
 
         // begin contructing a table
-        const size_t table_size = sizeof(qlog_table_header) + slen + spad + alen + apad;
+        const size_t table_size = sizeof(table_header) + slen + spad + alen + apad;
+        // static_assert(table_size < ctx.size);
 
         // construct and push a table header
-        const qlog_table_header header = {lvl, slen, fc.file_pointer + table_size, alen, fc.file_pointer + table_size + slen + spad};
-        fc.file_pointer += table_size;
-        memcpy(fc.buf.raw + fc.buf.idx, &header, sizeof(qlog_table_header));
-        fc.buf.idx += sizeof(qlog_table_header);
-
-        // push string
-        memcpy(fc.buf.raw + fc.buf.idx, str, slen);
-        fc.buf.idx += slen + spad;
-
-        // construct and push a table body
-        qlog_table_body<alen> body(a...);
-        memcpy(fc.buf.raw + fc.buf.idx, &body, sizeof(body));
-        fc.buf.idx += sizeof(body);
+        const table_header header = {
+            table_size, lvl, slen, ctx.file_pointer + sizeof(table_header), alen, ctx.file_pointer + sizeof(table_header) + slen + spad};
+        ctx.push_table(header, slen, spad, str, alen, apad, a...);
 }
 
-#define QLOG(lvl, str, ...)                                              \
-        {                                                                \
-                constexpr size_t slen = sizeof(str);                     \
-                constexpr size_t spad = slen % QLOG_PAD;                 \
-                qlog_construct_table(lvl, slen, spad, str, __VA_ARGS__); \
+} // namespace qlog
+
+#define QLOG(lvl, str, ...)                                               \
+        {                                                                 \
+                constexpr size_t slen = sizeof(str);                      \
+                constexpr size_t spad = slen % QLOG_PAD;                  \
+                qlog::construct_table(lvl, slen, spad, str, __VA_ARGS__); \
         }
 
-#include <windows.h>
-#define LOOPS 30000000
+// #define LOOPS 30000000
+#define LOOPS 100000
 
 int main()
 {
