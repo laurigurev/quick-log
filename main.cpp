@@ -23,20 +23,20 @@ constexpr size_t sizeofargs(const T& t, const A&... a)
 }
 
 struct file_header {
-        const char name[4];
-        const uint32_t table_count;
+        char     name[4];
+        uint32_t table_count;
 
-        file_header() = delete;
+        file_header(): name{'.', 'q', 'l', 'b'}, table_count(0) {}
         file_header(const uint32_t n) : name{'.', 'q', 'l', 'b'}, table_count(n) {}
 };
 
 struct table_header {
-        const size_t table_size;
-        const size_t level;
-        const size_t str_len;
-        const size_t str_offset;
-        const size_t args_size;
-        const size_t args_offset;
+        size_t table_size;
+        size_t level;
+        size_t str_len;
+        size_t str_offset;
+        size_t args_size;
+        size_t args_offset;
 };
 
 struct context {
@@ -47,10 +47,10 @@ struct context {
                 storage = reinterpret_cast<char*>(VirtualAlloc(NULL, 1024, MEM_COMMIT, PAGE_READWRITE));
                 assert(storage != NULL);
 
-                handle = CreateFile("logs.qlb", GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_FLAG_WRITE_THROUGH | FILE_FLAG_NO_BUFFERING, NULL);
+                handle = CreateFile("logs.qlb", GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
                 assert(handle != INVALID_HANDLE_VALUE);
 
-                const file_header fheader = { 0 };
+                const file_header fheader = {0};
                 memcpy(memory, &fheader, sizeof(file_header));
                 idx += sizeof(file_header);
                 file_pointer += sizeof(file_header);
@@ -61,7 +61,7 @@ struct context {
                 flush();
                 // TODO: truncate the file
                 CloseHandle(handle);
-                
+
                 // update file header
                 handle = CreateFile("logs.qlb", GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
                 assert(handle != INVALID_HANDLE_VALUE);
@@ -165,16 +165,16 @@ struct context {
                 idx += len - delta;
         }
 
-        static constexpr size_t size = 1024 * 512;
+        static constexpr size_t size = 512 * 1024;
         char*                   memory;
         char*                   storage;
         size_t                  idx;
         size_t                  file_pointer;
         HANDLE                  handle;
-        uint32_t table_count;
+        uint32_t                table_count;
 };
 
-static context ctx;
+/* static context ctx;
 
 template <typename... A>
 constexpr void construct_table(const size_t lvl, const size_t slen, const size_t spad, const char* str, const A... a)
@@ -192,7 +192,68 @@ constexpr void construct_table(const size_t lvl, const size_t slen, const size_t
         const table_header header = {
             table_size, lvl, slen, ctx.file_pointer + sizeof(table_header), alen, ctx.file_pointer + sizeof(table_header) + slen + spad};
         ctx.push_table(header, slen, spad, str, alen, apad, a...);
-}
+} */
+
+struct reader {
+        reader()
+        {
+                handle = CreateFile("logs.qlb", GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+                assert(handle != INVALID_HANDLE_VALUE);
+
+                file_header fheader;
+                ReadFile(handle, &fheader, sizeof(file_header), NULL, NULL);
+                printf("qlog::reader::reader(), table_count %u\n", fheader.table_count);
+
+                int pointer = SetFilePointer(handle, 0, NULL, FILE_CURRENT);
+                char string_buffer[256] = {};
+                char args_buffer[256] = {};
+                
+                size_t len = fheader.table_count;
+                len = 3;
+                
+                while (len--) {
+                        static const char* levels[] = { "[info] ", "[debug] ", "[warn] ", "[error] ", "[trace] "};
+                        table_header theader;
+                        ReadFile(handle, &theader, sizeof(table_header), NULL, NULL);
+                        
+                        /* printf("qlog::reader::reader(), size %llu, level %llu, str_len %llu, str_offset %llu, args_size %llu, args_offset %llu\n",
+                               theader.table_size, theader.level, theader.str_len, theader.str_offset, theader.args_size, theader.args_offset); */
+                        
+                        assert(theader.level < 5);
+                        assert(theader.str_len < 256);
+                        assert(theader.args_size < 256);
+                        
+                        SetFilePointer(handle, theader.str_offset, NULL, FILE_BEGIN);
+                        ReadFile(handle, string_buffer, theader.str_len, NULL, NULL);
+                        SetFilePointer(handle, theader.args_offset, NULL, FILE_BEGIN);
+                        ReadFile(handle, args_buffer, theader.args_size, NULL, NULL);
+
+                        va_list args = reinterpret_cast<va_list>(args_buffer);
+                        printf("%s", levels[theader.level]);
+                        vprintf(string_buffer, args);
+                        
+                        SetFilePointer(handle, pointer, NULL, FILE_BEGIN);
+                        pointer = SetFilePointer(handle, theader.table_size, NULL, FILE_CURRENT);
+                }
+
+                /* for (int i = 0; i < 40 / 8; i++) {
+                        for (int j = 0; j < 8; j++) {
+                                printf("%x", *(args_buffer + i * 8 + j));
+                        }
+                        char* tmp0 = args_buffer + i * 8;
+                        float* tmp1 = reinterpret_cast<float*>(tmp0);
+                        printf(" %f", *tmp1);
+                        printf("\n");
+                } */
+        }
+
+        ~reader()
+        {
+                CloseHandle(handle);
+        }
+
+        HANDLE handle;
+};
 
 } // namespace qlog
 
@@ -209,19 +270,21 @@ int main()
 {
         printf("Hello, meta-redo!\n");
 
-        LARGE_INTEGER f, s, e;
+        /* LARGE_INTEGER f, s, e;
         double        delta = 0.0;
         QueryPerformanceFrequency(&f);
         QueryPerformanceCounter(&s);
         for (int i = 0; i < LOOPS; i++) {
-                QLOG(2, "kjskjdksjd % kjsd%kj\n", false, 5, delta, 99.999f, true);
+                QLOG(2, "hello meta, %d, %i, %f, %f, &d\n", false, 5, delta, 99.999f, true);
         }
         QueryPerformanceCounter(&e);
 
         delta = static_cast<double>(e.QuadPart - s.QuadPart);
         delta /= f.QuadPart;
 
-        printf("QLOG(...) for %i loops took %.4fs\n", LOOPS, delta);
+        printf("QLOG(...) for %i loops took %.4fs\n", LOOPS, delta); */
+
+        qlog::reader r;
 
         return 0;
 }
