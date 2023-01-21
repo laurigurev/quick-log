@@ -1,10 +1,10 @@
 #pragma once
 
-#include <tuple>
 #include "args.hpp"
 #include "cstring.hpp"
 #include "serializer.hpp"
 #include "table.hpp"
+#include "tuple.hpp"
 
 namespace qlog {
 
@@ -34,12 +34,11 @@ struct writer {
         template <typename... A>
         constexpr void push_dynamic(const u16 id, const A&... a)
         {
-                const table_header     header = {id, QLOG_TABLE_TYPE_DYNAMIC};
-                const dynamic_table    table = {header};
-                const std::tuple<A...> tuple = {a...};
-                
-                printf("qlog::writer::push_dynamic(...), sizeof(tuple) %llu\n", sizeof(tuple));
-                // 32
+                const table_header  header = {id, QLOG_TABLE_TYPE_DYNAMIC};
+                const dynamic_table table = {header};
+                const tuple<A...>   tuple = {a...};
+
+                // printf("qlog::writer::push_dynamic(...), sizeof(tuple) %llu\n", sizeof(tuple));
 
                 ser.write(reinterpret_cast<const char*>(&table), sizeof(dynamic_table));
                 ser.write(reinterpret_cast<const char*>(&tuple), sizeof(tuple));
