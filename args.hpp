@@ -71,10 +71,11 @@ struct type_array {
         char types[N];
 };
 
-template <typename... A>
-constexpr u32 varg_count(const A... a)
+// copied from binlog
+template <typename... T>
+constexpr std::integral_constant<std::size_t, sizeof...(T)> count_arguments(T&&...)
 {
-        return sizeof...(a);
-}
+        return {};
+} // Implementation should be omitted but cannot be on MSVC
 
 } // namespace qlog

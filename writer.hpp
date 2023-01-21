@@ -21,12 +21,16 @@ struct writer {
                 constexpr u32      arg_count = sizeof...(a);
                 const static_table table = {header, level, file.len, line, format.len, arg_count};
 
-                const type_array<arg_count> arg_t = {a...};
+                // const type_array<arg_count> arg_t = {a...};
 
                 ser.write(reinterpret_cast<const char*>(&table), sizeof(static_table));
                 ser.write(file._raw, file.len);
                 ser.write(format._raw, format.len);
-                ser.write(arg_t.types, sizeof(arg_t));
+
+                if constexpr (arg_count) {
+                        const type_array<arg_count> arg_t = {a...};
+                        ser.write(arg_t.types, sizeof(arg_t));
+                }
 
                 return id;
         }
@@ -36,12 +40,18 @@ struct writer {
         {
                 const table_header  header = {id, QLOG_TABLE_TYPE_DYNAMIC};
                 const dynamic_table table = {header};
-                const tuple<A...>   tuple = {a...};
+
+                constexpr u32 arg_count = sizeof...(a);
+                // const tuple<A...>   tuple = {a...};
 
                 // printf("qlog::writer::push_dynamic(...), sizeof(tuple) %llu\n", sizeof(tuple));
 
                 ser.write(reinterpret_cast<const char*>(&table), sizeof(dynamic_table));
-                ser.write(reinterpret_cast<const char*>(&tuple), sizeof(tuple));
+
+                if constexpr (arg_count) {
+                        const tuple<A...> tuple = {a...};
+                        ser.write(reinterpret_cast<const char*>(&tuple), sizeof(tuple));
+                }
         }
 
         u64        unique_log_count;

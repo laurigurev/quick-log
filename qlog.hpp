@@ -14,20 +14,20 @@ enum log_level : u32 {
 
 static qlog::writer WRITER;
 
-#define QLOG(level, str, ...)                                                                \
-        {                                                                                    \
-                static size_t id = 0;                                                        \
-                                                                                             \
-                static_assert(0 <= level && level < QLOG_MAX);                               \
-                constexpr qlog::cstring format = {str};                                      \
-                constexpr qlog::cstring specifier = {"{}"};                                  \
-                static_assert(format.contains(specifier) == qlog::varg_count(__VA_ARGS__));  \
-                                                                                             \
-                if (id == 0) {                                                               \
-                        constexpr qlog::cstring file = {__FILE__};                           \
-                        id = WRITER.push_static(level, file, __LINE__, format, __VA_ARGS__); \
-                }                                                                            \
-                WRITER.push_dynamic(id, __VA_ARGS__);                                        \
+#define QLOG(level, str, ...)                                                                    \
+        {                                                                                        \
+                static size_t id = 0;                                                            \
+                                                                                                 \
+                static_assert(0 <= level && level < QLOG_MAX);                                   \
+                constexpr qlog::cstring format = {str};                                          \
+                constexpr qlog::cstring specifier = {"{}"};                                      \
+                static_assert(format.contains(specifier) == qlog::count_arguments(__VA_ARGS__)); \
+                                                                                                 \
+                if (id == 0) {                                                                   \
+                        constexpr qlog::cstring file = {__FILE__};                               \
+                        id = WRITER.push_static(level, file, __LINE__, format, __VA_ARGS__);     \
+                }                                                                                \
+                WRITER.push_dynamic(id, __VA_ARGS__);                                            \
         }
 
 /*

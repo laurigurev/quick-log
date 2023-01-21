@@ -6,7 +6,7 @@
 #include <iostream>
 #include <windows.h>
 
-#define SIZE 1024 * 1024
+#define SIZE 512 * 1024
 
 namespace qlog {
 
