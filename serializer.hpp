@@ -1,6 +1,8 @@
 #pragma once
 
 #include <fstream>
+#include <iostream>
+#include <iomanip>
 #include "types.hpp"
 
 namespace qlog {
@@ -8,7 +10,14 @@ namespace qlog {
 struct serializer {
         serializer() : file_pointer(0)
         {
-               out = std::ofstream("logs.qlb", std::ios::out); 
+                std::ios::sync_with_stdio(false);
+                out.rdbuf()->pubsetbuf(buffer, size);
+                out.open("logs.qlb", std::ios::binary);
+        }
+
+        ~serializer()
+        {
+                out.close();
         }
         
         void write(const char* ptr, u64 size)
@@ -18,10 +27,20 @@ struct serializer {
                 out.write(ptr, size);
         }
 
+        void dump(const char* ptr, u64 size) 
+        {
+                for (u64 i = 0; i < size; i++) {
+                        std::cout << std::hex << std::setfill('0') << std::setw(2) << (i32)ptr[i] << " ";
+                }
+                std::cout << std::endl;
+        }
+
         void write(const char* ptr, u64 size, u64 pad);
 
         std::ofstream out;
         u64 file_pointer;
+        static const u64 size = 256 * 1024;
+        char buffer[size];
 };
 
 } // namespace qlog

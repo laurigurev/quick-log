@@ -63,19 +63,18 @@ struct type_array {
                 construct_array(i + 1, a...);
         }
 
+        constexpr u32 size() const
+        {
+                return N;
+        }
+
         char types[N];
 };
 
-template <typename T>
-constexpr u32 varg_count(const T t)
+template <typename... A>
+constexpr u32 varg_count(const A... a)
 {
-        return 1;
-}
-
-template <typename T, typename... A>
-constexpr u32 varg_count(const T t, const A... a)
-{
-        return 1 + varg_count(a...);
+        return sizeof...(a);
 }
 
 } // namespace qlog
