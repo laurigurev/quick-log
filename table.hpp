@@ -4,6 +4,16 @@
 
 namespace qlog {
 
+struct file_header {
+        file_header() : signature{'.', 'q', 'l', 'b'}, padding(0), static_table_count(0), log_count(0) {}
+        file_header(const u64 s, const u64 l) : signature{'.', 'q', 'l', 'b'}, padding(0), static_table_count(s), log_count(l) {}
+        
+        char signature[4];
+        u32 padding;
+        u64 static_table_count;
+        u64 log_count;
+};
+
 enum table_type : u16 {
         QLOG_TABLE_TYPE_STATIC = 0,
         QLOG_TABLE_TYPE_DYNAMIC
