@@ -1,33 +1,53 @@
 #pragma once
 
-#include <fstream>
-#include <iostream>
-#include <iomanip>
 #include "types.hpp"
+#include <cassert>
+#include <iomanip>
+#include <iostream>
+#include <windows.h>
+
+#define SIZE 1024 * 1024
 
 namespace qlog {
 
 struct serializer {
-        serializer() : file_pointer(0)
+        serializer() : file_pointer(0), offset(0)
         {
-                std::ios::sync_with_stdio(false);
-                out.rdbuf()->pubsetbuf(buffer, size);
-                out.open("logs.qlb", std::ios::binary);
+                handle = CreateFile("logs.qlb", GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+                assert(handle != INVALID_HANDLE_VALUE);
+
+                buffer = reinterpret_cast<u8*>(VirtualAlloc(NULL, SIZE, MEM_COMMIT, PAGE_READWRITE));
         }
 
         ~serializer()
         {
-                out.close();
+                if (offset) flush();
+
+                CloseHandle(handle);
+                handle = INVALID_HANDLE_VALUE;
         }
-        
+
         void write(const char* ptr, u64 size)
         {
                 // TODO: add alignment using tellp() and seekp()
                 // TODO: update file_pointer
-                out.write(ptr, size);
+                
+                if (size + offset >= SIZE) {
+                        flush();
+                }
+                
+                memcpy(buffer + offset, ptr, size);
+                offset += size;
         }
 
-        void dump(const char* ptr, u64 size) 
+        void flush()
+        {
+                DWORD written = 0;
+                WriteFile(handle, buffer, offset, &written, NULL);
+                offset = 0;
+        }
+
+        void dump(const char* ptr, u64 size)
         {
                 for (u64 i = 0; i < size; i++) {
                         std::cout << std::hex << std::setfill('0') << std::setw(2) << (i32)ptr[i] << " ";
@@ -35,12 +55,12 @@ struct serializer {
                 std::cout << std::endl;
         }
 
-        void write(const char* ptr, u64 size, u64 pad);
+        // void write(const char* ptr, u64 size, u64 pad);
 
-        std::ofstream out;
-        u64 file_pointer;
-        static const u64 size = 256 * 1024;
-        char buffer[size];
+        HANDLE handle;
+        u64    file_pointer;
+        u64    offset;
+        u8*    buffer;
 };
 
 } // namespace qlog

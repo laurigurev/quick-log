@@ -1,5 +1,6 @@
 #pragma once
 
+#include <tuple>
 #include "args.hpp"
 #include "cstring.hpp"
 #include "serializer.hpp"
@@ -37,7 +38,7 @@ struct writer {
                 const dynamic_table    table = {header};
                 const std::tuple<A...> tuple = {a...};
                 
-                // printf("qlog::writer::push_dynamic(...), sizeof(tuple) %llu\n", sizeof(tuple));
+                printf("qlog::writer::push_dynamic(...), sizeof(tuple) %llu\n", sizeof(tuple));
                 // 32
 
                 ser.write(reinterpret_cast<const char*>(&table), sizeof(dynamic_table));
