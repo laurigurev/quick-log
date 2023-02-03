@@ -6,7 +6,7 @@ template <typename, typename...>
 struct tuple;
 
 template <typename T>
-struct tuple<T> {
+struct alignas(8) tuple<T> {
         tuple(const T& t) : data(t) {}
         tuple() {}
 

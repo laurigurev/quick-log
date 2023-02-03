@@ -2,8 +2,8 @@
 
 #include "args.hpp"
 #include "cstring.hpp"
-#include "serializer.hpp"
 #include "deserializer.hpp"
+#include "serializer.hpp"
 #include "table.hpp"
 #include "tuple.hpp"
 
@@ -16,7 +16,7 @@ struct writer {
                 ser.write(reinterpret_cast<const char*>(&header), sizeof(file_header));
         }
 
-        ~writer() 
+        ~writer()
         {
                 const file_header header = {unique_log_count, log_count};
                 ser.header = header;
@@ -67,7 +67,7 @@ struct writer {
         constexpr void push_dynamic(const u16 id, const A&... a)
         {
                 log_count++;
-                
+
                 const table_header  header = {id, QLOG_TABLE_TYPE_DYNAMIC};
                 const dynamic_table table = {header};
                 const tuple<A...>   tuple = {a...};
@@ -82,7 +82,7 @@ struct writer {
         constexpr void push_dynamic(const u16 id)
         {
                 log_count++;
-                
+
                 const table_header  header = {id, QLOG_TABLE_TYPE_DYNAMIC};
                 const dynamic_table table = {header};
 
@@ -92,7 +92,7 @@ struct writer {
         }
 
         u64        unique_log_count;
-        u64 log_count;
+        u64        log_count;
         serializer ser;
 };
 

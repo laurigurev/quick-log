@@ -102,14 +102,15 @@ struct deserializer {
                 static dynamic_table dyntab;
                 ReadFile(handle, &dyntab, sizeof(dynamic_table), NULL, NULL);
                 
-                const des::static_table table = static_tables[id];
+                const des::static_table& table = static_tables[id];
                 format = table.format;
-                std::cout << levels[table.table.level] << table.file << ":" << table.table.line << " --- ";
 
                 char* ma_prev = ma.pointer;
                 char* raw = ma.push(table.args_size);
                 
                 ReadFile(handle, raw, table.args_size, NULL, NULL);
+                
+                std::cout << levels[table.table.level] << table.file << ":" << table.table.line << " --- ";
                 
                 u64   offset = 0;
                 u64 i = 0;
