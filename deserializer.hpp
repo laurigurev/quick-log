@@ -189,8 +189,14 @@ struct deserializer {
                                 std::cout << *tmp;
                                 break;
                         }
+                        case QLOG_DATA_TYPE_STRING_LITERAL: {
+                                const char** tmp = reinterpret_cast<const char**>(raw + offset);
+                                offset += 8;
+                                std::cout << *tmp;
+                                break;
+                        }
                         default:
-                                assert(0);
+                                assert(0 && "unsupported data type");
                         }
 
                         i++;

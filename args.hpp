@@ -1,6 +1,7 @@
 #pragma once
 
 #include "types.hpp"
+#include <iostream>
 #include <type_traits>
 
 namespace qlog {
@@ -17,6 +18,7 @@ enum log_data_type : uint32_t {
         QLOG_DATA_TYPE_UINT64,
         QLOG_DATA_TYPE_FLOAT,
         QLOG_DATA_TYPE_DOUBLE,
+        QLOG_DATA_TYPE_STRING_LITERAL,
         QLOG_DATA_TYPE_OTHER
 };
 
@@ -42,7 +44,10 @@ struct type_array {
                 else if (std::is_same<T, u64>::value) types[i] = QLOG_DATA_TYPE_UINT64;
                 else if (std::is_same<T, f32>::value) types[i] = QLOG_DATA_TYPE_FLOAT;
                 else if (std::is_same<T, d64>::value) types[i] = QLOG_DATA_TYPE_DOUBLE;
+                else if (std::is_same<T, const char*>::value) types[i] = QLOG_DATA_TYPE_STRING_LITERAL;
                 else types[i] = QLOG_DATA_TYPE_OTHER;
+
+                if (types[i] == QLOG_DATA_TYPE_OTHER) std::cout << "OTHER TYPE\n";
         }
 
         template <typename T, typename... A>
@@ -59,7 +64,11 @@ struct type_array {
                 else if (std::is_same<T, u64>::value) types[i] = QLOG_DATA_TYPE_UINT64;
                 else if (std::is_same<T, f32>::value) types[i] = QLOG_DATA_TYPE_FLOAT;
                 else if (std::is_same<T, d64>::value) types[i] = QLOG_DATA_TYPE_DOUBLE;
+                else if (std::is_same<T, const char*>::value) types[i] = QLOG_DATA_TYPE_STRING_LITERAL;
                 else types[i] = QLOG_DATA_TYPE_OTHER;
+                
+                if (types[i] == QLOG_DATA_TYPE_OTHER) std::cout << "OTHER TYPE\n";
+                
                 construct_array(i + 1, a...);
         }
 

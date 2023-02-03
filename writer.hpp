@@ -72,8 +72,6 @@ struct writer {
                 const dynamic_table table = {header};
                 const tuple<A...>   tuple = {a...};
 
-                // printf("qlog::writer::push_dynamic(...), sizeof(tuple) %llu\n", sizeof(tuple));
-
                 ser.write(reinterpret_cast<const char*>(&table), sizeof(dynamic_table));
                 ser.write(reinterpret_cast<const char*>(&tuple), sizeof(tuple));
         }
@@ -85,8 +83,6 @@ struct writer {
 
                 const table_header  header = {id, QLOG_TABLE_TYPE_DYNAMIC};
                 const dynamic_table table = {header};
-
-                // printf("qlog::writer::push_dynamic(...), sizeof(tuple) %llu\n", sizeof(tuple));
 
                 ser.write(reinterpret_cast<const char*>(&table), sizeof(dynamic_table));
         }
