@@ -3,6 +3,7 @@
 #include "args.hpp"
 #include "cstring.hpp"
 #include "serializer.hpp"
+#include "deserializer.hpp"
 #include "table.hpp"
 #include "tuple.hpp"
 
@@ -19,6 +20,10 @@ struct writer {
         {
                 const file_header header = {unique_log_count, log_count};
                 ser.header = header;
+
+                ser.clean_up();
+
+                deserializer des = {};
         }
 
         template <u32 N, u32 M, typename... A>

@@ -66,10 +66,7 @@ struct deserializer {
                         else if (tab_head.table_type == QLOG_TABLE_TYPE_DYNAMIC) parse_dynamic(tab_head.id);
                         else assert(0);
                 }
-        }
-
-        ~deserializer()
-        {
+                
                 CloseHandle(handle);
                 handle = INVALID_HANDLE_VALUE;
         }

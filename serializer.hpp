@@ -20,7 +20,7 @@ struct serializer {
                 buffer = reinterpret_cast<u8*>(VirtualAlloc(NULL, SIZE, MEM_COMMIT, PAGE_READWRITE));
         }
 
-        ~serializer()
+        void clean_up()
         {
                 if (offset) flush();
 

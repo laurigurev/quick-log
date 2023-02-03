@@ -3,3 +3,4 @@
 *.ilf
 compile_flags.txt
 *.qlb
+main.cpp
